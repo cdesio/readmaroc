@@ -73,6 +73,15 @@ class MarocData:
             return self.marocdata[idx]
         else:
             raise ValueError("Board not in data file")
+    def header_board(self, board_id):
+        if board_id in self.active_boards:
+            idx = np.where(
+                self.header[:, 0]
+                == int(boards_ip[boards_ip["board_id"] == board_id]["dec"])
+            )[0]
+            return self.header[idx]
+        else:
+            raise ValueError("Board not in data file")
 
     def _noise(self, board_id):
         n_events = self.nevents_per_board(board_id)
@@ -119,3 +128,44 @@ class MarocData:
         )
         plt.ylim(0, ylim)
         plt.show()
+
+
+class Header:
+    def __init__(self, header):
+        self.header = header
+    @property
+    def ip(self):
+        return self.header[0]
+    @property
+    def trigg_n_TS(self):
+        return self.header[1]
+    @property
+    def TS(self):
+        return self.header[2]
+    @property
+    def TS_fine_n(self):
+        return self.header[3]
+    @property
+    def TS_fine(self):
+        return self.header[4:14]
+    @property
+    def orcounts_n(self):
+        return self.header[14]
+    @property
+    def orcounts(self):
+        return self.header[15:25]
+    @property
+    def trg_ADC_n(self):
+        return self.header[25]
+    @property
+    def trg_ADC(self):
+        return self.header[26:31]
+    @property
+    def timestamp_ADC_n(self):
+        return self.header[31]
+    @property
+    def timestamp_ADC(self):
+        return self.header[32:37]
+    @property
+    def ADC_samples(self):
+        return self.header[37:39]
