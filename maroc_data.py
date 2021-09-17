@@ -1,171 +1,130 @@
+from datetime import time
 import numpy as np
-from maroc_ipaddress import boards_ip
+from numpy.lib import add_docstring
+from maroc_ipaddress import BOARDS
 import matplotlib.pyplot as plt
+
+from dataclasses import dataclass
+from dataclasses import InitVar, field
+from typing import List
+
 
 STEP_HEADER = 39
 STEP_DATA = 320
 
+@dataclass
+class Event:
+    metadata: InitVar[List[int]]
+    signal: List[int]
+    evt_id: int = field(init=False)
+    TS: int = field(init=False)
+    TS_fine_n: List[int] = field(init=False)
+    TS_fine: int = field(init=False)
+    orcounts_n: List[int] = field(init=False)
+    orcounts: int = field(init=False)
+    trg_ADC_n: int = field(init=False)
+    trg_ADC: List[int] = field(init=False)
+    timestamp_ADC_n: int = field(init=False)
+    timestamp_ADC: List[int] = field(init=False)
+    ADC_samples: List[int] = field(init=False)
+
+    def __post_init__(self, metadata):
+        if (metadata is not None):
+            self.evt_id = metadata[1]
+            self.TS = metadata[2]
+            self.TS_fine_n = metadata[3]
+            self.TS_fine = metadata[4:14]
+            self.orcounts_n = metadata[14]
+            self.orcounts = metadata[15:25]
+            self.trg_ADC_n = metadata[25]
+            self.trg_ADC = metadata[26:31]
+            self.timestamp_ADC_n = metadata[31]
+            self.timestamp_ADC = metadata[32:37]
+            self.ADC_samples = metadata[37:39]
+
+    def __str__(self) -> str:
+        return f"Event({self.evt_id})"
+
+    def __repr__(self) -> str:
+        return str(self)
+
+
+class Board:
+    def __init__(self, bid: int, ipv4:int, dec: int):
+        self.ip = ipv4
+        self.bid = bid
+        self.dec = dec
+        self.events = {}
+
+    def add(self, event : Event):
+        self.events[event.evt_id] = event
+
+    def get_event(self, evt_id):
+        return self.events.get(evt_id, None)
+    
+    @property
+    def tot_events(self):
+        return len(self.events)
+
+    def __contains__(self, evt_id):
+        return evt_id in self.events
+
+    @property
+    def event_ids(self):
+        return list(self.events.keys())
+
 
 class MarocData:
     def __init__(self, infile):
-        self.data = self._read_data(infile)
-        self.header, self.marocdata = self._split_data()
+        self._data = self._read_data(infile)
+        self._boards = self._read_events()
 
     def _read_data(self, fname):
-        with open(fname, "r") as fp:
+        with open(fname, "rb") as fp:
             data = np.fromfile(fp, dtype=np.uint32)
         return data
 
-    def _split_data(self):
-        headers = []
-        marocdata = []
-        for i in range(self.tot_events):
-            headers.append(
-                self.data[
+    def _read_events(self):
+        boards = {}
+        tot_events = int(self._data.shape[0] / (STEP_DATA + STEP_HEADER))
+        for i in range(tot_events):
+            metadata = self._data[
                     i * STEP_HEADER
                     + i * STEP_DATA : (i + 1) * STEP_HEADER
-                    + STEP_DATA * i
-                ]
-            )
-            marocdata.append(
-                self.data[
+                    + STEP_DATA * i]
+            ip_dec = metadata[0]
+            boardip = BOARDS[ip_dec]
+            event_board = boards.setdefault(boardip.bid, 
+                Board(boardip.bid, boardip.ipv4, boardip.dec))
+            data = self._data[
                     (i + 1) * STEP_HEADER
                     + STEP_DATA * i : (i + 1) * STEP_HEADER
-                    + (i + 1) * STEP_DATA
-                ]
-            )
-        headers = np.asarray(headers, dtype=int)
-        marocdata = np.asarray(marocdata, dtype=int)
-        return headers, marocdata
+                    + (i + 1) * STEP_DATA]
+            event = Event(metadata, data)
+            event_board.add(event)
+            boards[boardip.bid] = event_board
+        return boards
+
+    def get_board(self, bid: int) -> Board:
+        return self._boards.get(bid, None)
 
     @property
     def tot_events(self):
-        return int(self.data.shape[0] / (STEP_DATA + STEP_HEADER))
+        return sum([b.tot_events for b in self._boards.values()])
 
-    def nevents_per_board(self, board_id):
-        if board_id in self.active_boards:
-            return len(
-                np.where(
-                    self.header[:, 0]
-                    == int(boards_ip[boards_ip["board_id"] == board_id]["dec"])
-                )[0]
-            )
-        else:
-            raise ValueError("Board not in data file")
-
+    @property
+    def n_events_per_board(self):
+        return [(b.board_id, b.tot_events) for b in self._boards.values()]
     @property
     def active_boards(self):
-        active_boards = []
-        for dec in np.unique(self.header[:, 0]):
-            active_boards.append(int(boards_ip[boards_ip["dec"] == dec]["board_id"]))
-        return sorted(active_boards)
+        return [b.board_id for b in self._boards.values()]
 
-    @property
-    def n_active_boards(self):
-        return len(self.active_boards)
-
-    def board_data(self, board_id):
-        if board_id in self.active_boards:
-            idx = np.where(
-                self.header[:, 0]
-                == int(boards_ip[boards_ip["board_id"] == board_id]["dec"])
-            )[0]
-            return self.marocdata[idx]
-        else:
-            raise ValueError("Board not in data file")
-    def header_board(self, board_id):
-        if board_id in self.active_boards:
-            idx = np.where(
-                self.header[:, 0]
-                == int(boards_ip[boards_ip["board_id"] == board_id]["dec"])
-            )[0]
-            return self.header[idx]
-        else:
-            raise ValueError("Board not in data file")
-
-    def _noise(self, board_id):
-        n_events = self.nevents_per_board(board_id)
-        board_data = self.board_data(board_id)
-        avg_data = self._avg_data(board_id)
-        noise = 0
-        noise = np.sum(
-            list((map(lambda dat: np.sqrt((dat - avg_data) ** 2), board_data))), axis=0
-        ) / (n_events - 1)
-
-        return noise
-
-    def _avg_data(self, board_id):
-        n_events = self.nevents_per_board(board_id)
-        board_data = self.board_data(board_id)
-
-        avg_board_data = np.mean(board_data[:n_events], axis=0)
-
-        return avg_board_data
-
-    def plot_avg_data(self, board_id, ylim=2000):
-        avg_data = self._avg_data(board_id)
-        plt.figure(figsize=(8, 6))
-        plt.plot(np.arange(0, 320), avg_data)
-        plt.xlabel("strip")
-        plt.title(
-            "avg signal {} events, board {}".format(
-                self.nevents_per_board(board_id), board_id
-            )
-        )
-        plt.ylim(0, ylim)
-        plt.show()
-        return
-
-    def plot_noise(self, board_id, ylim=500):
-        noise = self._noise(board_id)
-        plt.figure(figsize=(8, 6))
-        plt.plot(np.arange(0, STEP_DATA), noise)
-        plt.xlabel("strip")
-        plt.title(
-            "avg noise {} events, board {}".format(
-                self.nevents_per_board(board_id), board_id
-            )
-        )
-        plt.ylim(0, ylim)
-        plt.show()
+    def get_event(self, evt_id):
+        sorted_ids = sorted(self._boards.keys())
+        return [(bid, self._boards[bid].get_event(evt_id)) for bid in sorted_ids]
+        
+    
 
 
-class Header:
-    def __init__(self, header):
-        self.header = header
-    @property
-    def ip(self):
-        return self.header[0]
-    @property
-    def trigg_n_TS(self):
-        return self.header[1]
-    @property
-    def TS(self):
-        return self.header[2]
-    @property
-    def TS_fine_n(self):
-        return self.header[3]
-    @property
-    def TS_fine(self):
-        return self.header[4:14]
-    @property
-    def orcounts_n(self):
-        return self.header[14]
-    @property
-    def orcounts(self):
-        return self.header[15:25]
-    @property
-    def trg_ADC_n(self):
-        return self.header[25]
-    @property
-    def trg_ADC(self):
-        return self.header[26:31]
-    @property
-    def timestamp_ADC_n(self):
-        return self.header[31]
-    @property
-    def timestamp_ADC(self):
-        return self.header[32:37]
-    @property
-    def ADC_samples(self):
-        return self.header[37:39]
+
+
