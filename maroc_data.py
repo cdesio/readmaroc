@@ -93,7 +93,7 @@ class Board:
         if self._signals is None:
             self._signals = np.asarray([evt.signal for evt in self.events.values()])
         return self._signals
-
+#change here
     @property
     def timestamps(self):
         if self._timestamps is None:
