@@ -247,7 +247,7 @@ class MarocData:
         sorted_ids = sorted(self._boards.keys())
         return [(bid, self._boards[bid].get_event(evt_id)) for bid in sorted_ids]
 
-    def fix_p1(self):
+    def fix_p1(self, debug=True):
         all_ts_stack = list()
         boards_timestamps = dict()
         for bid in self._boards:
@@ -264,7 +264,8 @@ class MarocData:
             for bid, board_ts in boards_timestamps.items():
                 if ts + 1 in board_ts:
                     evt_id = board_ts[ts + 1]
-                    print(f"[LOG]: FIX {evt_id} in {bid}; from {ts+1} to {ts}")
+                    if debug:
+                        print(f"[LOG]: FIX {evt_id} in {bid}; from {ts+1} to {ts}")
                     self._boards[bid].set_tsnorm(evt_id, ts)
         return
 
