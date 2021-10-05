@@ -11,9 +11,10 @@ import json
 input_dat = sys.argv[1]
 marocdata = MarocData(input_dat)
 
-marocdata.fix_p1(debug=True)
+marocdata.fix_p1(debug=False)
+print("processing fname: {}".format(input_dat))
 
-offset = sys.argv[2]
+offset = int(sys.argv[2])
 thresholds = {
     b: offset + (mu + 5 * std) for b, (mu, std) in marocdata.noise_tot.items()
 }
@@ -34,8 +35,14 @@ for bid in marocdata.active_boards:
     ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ > 1]
 
 counts_per_board = {bid: len(tss) for bid, tss in over_threshold_per_board.items()}
+out_dir = sys.argv[3]
 
-outfile = input_dat.split(".dat")[0] + "_counts_thresh{}.json".format(offset)
+outfile = (
+    out_dir
+    + "/"
+    + input_dat.split(".dat")[0].split("/")[-1]
+    + "_counts_thresh{}.json".format(offset)
+)
 if not os.path.exists(outfile):
     os.system("touch {}".format(outfile))
 

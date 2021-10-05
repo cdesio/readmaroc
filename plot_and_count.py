@@ -102,9 +102,14 @@ for bid in marocdata.active_boards:
 
     ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ > 1]
 
-outfile_pdf = input_dat.split(".dat")[
-    0
-] + "_output_ts_clean_fixed_p1_thresh_{}.pdf".format(offset)
+out_dir = sys.argv[3]
+
+outfile_pdf = (
+    out_dir
+    + "/"
+    + input_dat.split(".dat")[0].split("/")[-1]
+    + "_output_ts_clean_fixed_p1_thresh_{}.pdf".format(offset)
+)
 pdf = matplotlib.backends.backend_pdf.PdfPages(outfile_pdf)
 for ts in ts_to_plot:
     fig, ax1, ax2 = plot_event_ts_new(ts, marocdata)
@@ -115,7 +120,12 @@ plt.close()
 
 counts_per_board = {bid: len(tss) for bid, tss in over_threshold_per_board.items()}
 
-outfile_json = input_dat.split(".dat")[0] + "_counts_thresh{}.json".format(offset)
+outfile_json = (
+    out_dir
+    + "/"
+    + input_dat.split(".dat")[0].split("/")[-1]
+    + "_counts_thresh{}.json".format(offset)
+)
 if not os.path.exists(outfile_json):
     os.system("touch {}".format(outfile_json))
 

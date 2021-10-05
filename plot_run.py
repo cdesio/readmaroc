@@ -16,6 +16,7 @@ marocdata = MarocData(input_dat)
 y_offset = [12000, 10000, 8000, 4000, 2000]
 
 marocdata.fix_p1(debug=False)
+print("processing fname: {}".format(input_dat))
 
 
 def board_plot(ax, ts, board_id, board_idx, triplet_idx, c="blue"):
@@ -100,9 +101,15 @@ for bid in marocdata.active_boards:
 
     ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ > 1]
 
-outfile = input_dat.split(".dat")[0] + "_output_ts_clean_fixed_p1_thresh_{}.pdf".format(
-    offset
+out_dir = sys.argv[3]
+
+outfile = (
+    out_dir
+    + "/"
+    + input_dat.split(".dat")[0].split("/")[-1]
+    + "_output_ts_clean_fixed_p1_thresh_{}.pdf".format(offset)
 )
+
 pdf = matplotlib.backends.backend_pdf.PdfPages(outfile)
 for ts in ts_to_plot:
     fig, ax1, ax2 = plot_event_ts_new(ts, marocdata)
