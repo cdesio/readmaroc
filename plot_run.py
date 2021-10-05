@@ -15,7 +15,7 @@ marocdata = MarocData(input_dat)
 
 y_offset = [12000, 10000, 8000, 4000, 2000]
 
-marocdata.fix_p1()
+marocdata.fix_p1(debug=False)
 
 
 def board_plot(ax, ts, board_id, board_idx, triplet_idx, c="blue"):
@@ -80,7 +80,7 @@ def plot_event_ts_new(ts, marocdata):
     return fig, ax1, ax2
 
 
-offset = 200
+offset = sys.argv[2]
 thresholds = {
     b: offset + (mu + 5 * std) for b, (mu, std) in marocdata.noise_tot.items()
 }
