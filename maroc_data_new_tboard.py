@@ -1,4 +1,3 @@
-from datetime import time
 import numpy as np
 from numpy.lib import add_docstring
 from maroc_ipaddress import BOARDS
@@ -13,6 +12,7 @@ from typing import Dict
 STEP_HEADER = 39
 STEP_DATA = 320
 MAX_UINT32 = np.iinfo(np.uint32).max
+marocs = [(i, j) for i, j in zip(np.arange(0, 384, 64), np.arange(0, 384, 64)[1:])]
 
 
 @dataclass
@@ -94,8 +94,9 @@ class Board:
     @property
     def signals(self):
         if self._signals is None:
-            self._signals = {eid: evt.signal for eid, evt in self.events.items()}
-            # self._signals = np.asarray([evt.signal for evt in self.events.values()])
+            self._signals = {
+                eid: self.correct_signal(evt.signal) for eid, evt in self.events.items()
+            }
         return self._signals
 
     @staticmethod
@@ -163,6 +164,28 @@ class Board:
         event = self.events.get(evtid, None)
         if event is not None:
             event.TS_norm = ts
+
+    @staticmethod
+    def correct_signal(signal, common_mode_threshold=400):
+        signal_to_correct = np.copy(signal)
+        maroc_n_strips = 64
+        n_marocs = 5
+        marocs = [
+            (i, j)
+            for i, j in zip(
+                np.arange(0, maroc_n_strips * (n_marocs + 1), maroc_n_strips),
+                np.arange(0, maroc_n_strips * (n_marocs + 1), maroc_n_strips)[1:],
+            )
+        ]
+        for (
+            i,
+            m,
+        ) in enumerate(marocs):
+            l, h = m
+            maroc_strips = range(l, h)
+            if np.mean(signal_to_correct[maroc_strips]) > common_mode_threshold:
+                signal_to_correct[maroc_strips] = signal_to_correct[maroc_strips] / 2
+        return signal_to_correct
 
     @property
     def avg_data(self):
@@ -271,6 +294,10 @@ class MarocData:
 
     @property
     def noise_tot(self):
+        return {bid: (self.get_board(bid).noise * 7) for bid in self.active_boards}
+
+    @property
+    def musigma(self):
         return {bid: norm.fit(self.get_board(bid).noise) for bid in self.active_boards}
 
     @property
