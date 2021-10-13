@@ -14,7 +14,7 @@ def get_max_evt_number(folder, fname):
         event_numbers = []
         firstline = f.readline()
         date = datetime.strptime(firstline, "%d/%m/%Y\t%H:%M\n")
-        # print(firstline, date)
+        print(firstline, date)
         for line in f.readlines()[1:]:
             event_numbers.append(int(line.split("\t")[-1].split("\n")[0]))
     return date, np.max(event_numbers)
