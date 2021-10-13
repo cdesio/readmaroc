@@ -32,7 +32,7 @@ for (i, ts), (j, tsp1) in zip(enumerate(filelist), enumerate(filelist[1:])):
     if delta_ft.seconds > 0 and delta_ft.seconds < 3600:
         rates[ts] = events1 / delta_ft.seconds
         # print(filetime1, filetime2, ts, tsp1, delta_ft.seconds, np.ceil(events1/delta_ft.seconds))
-print(rates, np.mean(rates.values()))
+print(rates.values(), np.mean(list(rates.values())))
 
 import json
 
