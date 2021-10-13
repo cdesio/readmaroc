@@ -30,7 +30,7 @@ for (i, ts), (j, tsp1) in zip(enumerate(filelist), enumerate(filelist[1:])):
     filetime2, events2 = get_max_evt_number(folder, tsp1)
     delta_ft = filetime2 - filetime1
     if delta_ft.seconds > 0 and delta_ft.seconds < 3600:
-        rates[ts] = events1 / delta_ft.seconds
+        rates[ts] = (filetime1, events1 / delta_ft.seconds)
         # print(filetime1, filetime2, ts, tsp1, delta_ft.seconds, np.ceil(events1/delta_ft.seconds))
 print(rates.values(), np.mean(list(rates.values())))
 
