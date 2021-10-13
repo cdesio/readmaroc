@@ -23,13 +23,23 @@ def get_max_evt_number(folder, fname):
     return date, np.max(event_numbers)
 
 
-rates = []
+rates = {}
 for (i, ts), (j, tsp1) in zip(enumerate(filelist), enumerate(filelist[1:])):
     # delta = (timestamps[tsp1]-timestamps[ts]).seconds
     filetime1, events1 = get_max_evt_number(folder, ts)
     filetime2, events2 = get_max_evt_number(folder, tsp1)
     delta_ft = filetime2 - filetime1
-    if delta_ft.seconds > 0:
-        rates.append(np.ceil(events1 / delta_ft.seconds))
+    if delta_ft.seconds > 0 and delta_ft.seconds < 3600:
+        rates[ts] = events1 / delta_ft.seconds
         # print(filetime1, filetime2, ts, tsp1, delta_ft.seconds, np.ceil(events1/delta_ft.seconds))
-print(rates, np.mean(rates))
+print(rates, np.mean(rates.values()))
+
+import json
+
+outfile = os.path.join("./", "trigger_rate_{}".format(folder.split("/")[-1]))
+
+if not os.path.exists(outfile):
+    os.system("touch {}".format(outfile))
+
+with open(outfile, "r+") as file:
+    json.dump(rates, open(outfile, "w"))
