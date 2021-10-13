@@ -5,7 +5,9 @@ from datetime import datetime
 folder = sys.argv[1]
 
 filelist = [
-    fname for fname in sorted(os.listdir(folder)) if fname.endswith("logfile.txt")
+    fname
+    for fname in sorted(os.listdir(folder))
+    if fname.endswith("logfile.txt" and not fname == "logfile.txt")
 ]
 
 
