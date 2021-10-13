@@ -13,6 +13,7 @@ def get_max_evt_number(folder, fname):
     with open(os.path.join(folder, fname)) as f:
         event_numbers = []
         firstline = f.readline()
+        print(fname)
         date = datetime.strptime(firstline, "%d/%m/%Y\t%H:%M\n")
         print(firstline, date)
         for line in f.readlines()[1:]:
