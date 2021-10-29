@@ -105,12 +105,48 @@ def plot_event_ts_new(ts, marocdata):
 # thresholds = {
 #    b: offset + (mu + 5 * std) for b, (mu, std) in marocdata.noise_tot.items()
 # }
-
+sigma = int(sys.argv[2])
 pedestals = marocdata.pedestals_tot
-noise_tot = marocdata.noise_tot
+noise_tot = marocdata.noise_tot(sigma)
 
 
-def over_threshold_per_board(marocdata, pedestals, noise_tot):
+def take_consecutive(index_list):
+    if len(index_list) < 3:
+        return None
+    else:
+        consecutive = []
+        index_list = np.sort(index_list)
+        for el, elp1 in zip(index_list, index_list[1:]):
+            if elp1 == el + 1:
+                consecutive.append(el)
+                consecutive.append(elp1)
+        if len(consecutive) == 0:
+            return None
+        else:
+            return np.unique(consecutive)
+
+
+def over_threshold_per_board(marocdata, pedestals, noise):
+    over_threshold_per_board = {}
+    for bid in marocdata.active_boards:
+        timestamps = []
+        board = marocdata.get_board(bid)
+        for eid, signal in board.signals.items():
+            if np.any((signal - pedestals[bid]) > noise[bid]):
+                over = np.sort(np.where((signal - pedestals[bid]) > noise[bid])[0])
+                consecutives = take_consecutive(over)
+                if consecutives is None:
+                    pass
+                else:
+                    if len(consecutives) <= 40:
+                        event = board.get_event(eid)
+                        # print(bid, eid, consecutives)
+                        timestamps.append(event.TS_norm)
+        over_threshold_per_board[bid] = timestamps
+    return over_threshold_per_board
+
+
+""" def over_threshold_per_board(marocdata, pedestals, noise_tot):
     over_threshold_per_board = {}
     for bid in marocdata.active_boards:
         timestamps = []
@@ -120,22 +156,22 @@ def over_threshold_per_board(marocdata, pedestals, noise_tot):
                 event = board.get_event(eid)
                 timestamps.append(event.TS_norm)
         over_threshold_per_board[bid] = timestamps
-    return over_threshold_per_board
+    return over_threshold_per_board """
 
 
 ts_over_threshold = over_threshold_per_board(marocdata, pedestals, noise_tot)
 
 all_ts = reduce(add, ts_over_threshold.values())
+no_hits = int(sys.argv[3])
+ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ >= no_hits]
 
-ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ >= 2]
-
-out_dir = sys.argv[2]
+out_dir = sys.argv[4]
 
 outfile_pdf = (
     out_dir
     + "/"
     + input_dat.split(".dat")[0].split("/")[-1]
-    + "_output_ts_clean_fixed_p1_5sigma.pdf"
+    + "_output_ts_clean_fixed_p1_{}sigma_{}hits.pdf".format(sigma, no_hits)
 )
 
 pdf = matplotlib.backends.backend_pdf.PdfPages(outfile_pdf)

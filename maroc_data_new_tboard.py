@@ -292,9 +292,8 @@ class MarocData:
                     self._boards[bid].set_tsnorm(evt_id, ts)
         return
 
-    @property
-    def noise_tot(self):
-        return {bid: (self.get_board(bid).noise * 7) for bid in self.active_boards}
+    def noise_tot(self, sigma=5):
+        return {bid: (self.get_board(bid).noise * sigma) for bid in self.active_boards}
 
     @property
     def musigma(self):
