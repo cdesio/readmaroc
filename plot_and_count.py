@@ -21,6 +21,15 @@ marocdata.fix_p1(debug=False)
 print("processing fname: {}".format(input_dat))
 
 
+# offset = int(sys.argv[2])
+# thresholds = {
+#    b: offset + (mu + 5 * std) for b, (mu, std) in marocdata.noise_tot.items()
+# }
+sigma = int(sys.argv[2])
+pedestals_tot = marocdata.pedestals_tot
+noise_tot = marocdata.noise_tot(sigma)
+
+
 def board_plot(ax, ts, marocdata, board_id, board_idx, triplet_idx, c="blue"):
     if board_id in marocdata.active_boards:
         board = marocdata.get_board(board_id)
@@ -104,15 +113,6 @@ def plot_event_ts_new(ts, marocdata):
     return fig, ax1, ax2
 
 
-# offset = int(sys.argv[2])
-# thresholds = {
-#    b: offset + (mu + 5 * std) for b, (mu, std) in marocdata.noise_tot.items()
-# }
-sigma = int(sys.argv[2])
-pedestals_tot = marocdata.pedestals_tot
-noise_tot = marocdata.noise_tot(sigma)
-
-
 def take_consecutive(index_list):
     if len(index_list) < 3:
         return None
@@ -162,7 +162,7 @@ def over_threshold_per_board(marocdata, pedestals, noise):
     return over_threshold_per_board """
 
 
-ts_over_threshold = over_threshold_per_board(marocdata, pedestals, noise_tot)
+ts_over_threshold = over_threshold_per_board(marocdata, pedestals_tot, noise_tot)
 
 all_ts = reduce(add, ts_over_threshold.values())
 no_hits = int(sys.argv[3])
