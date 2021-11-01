@@ -30,18 +30,21 @@ def board_plot(ax, ts, marocdata, board_id, board_idx, triplet_idx, c="blue"):
                 signal = board.signals[evt]
                 if np.max(signal) > 2000:
                     signal = signal * 0.45
-                pedestal = board.avg_data
-                noise = board.noise
+                pedestal = pedestals_tot[board_id]
+                noise = noise_tot[board_id]
                 if np.any(signal - pedestal > noise):
                     over = np.where(signal - pedestal > noise)[0]
                     seed = np.max((signal - pedestal)[over])
                     over_x = np.where(signal - pedestal == seed)[0][0]
-                #                     ax.scatter(
-                #                         over_x+ (board_idx * 320),
-                #                         seed*2 + y_offset[triplet_idx],
-                #                         color='k', marker='x',
-                #                         s=10,
-                #                     )
+                    ax.scatter(
+                        over_x + (board_idx * 320),
+                        seed + y_offset[triplet_idx],
+                        color="k",
+                        marker="s",
+                        s=400,
+                        facecolors="none",
+                        alpha=0.7,
+                    )
                 ax.plot(
                     np.arange(0 + (board_idx * 320), 320 + 320 * board_idx),
                     (signal - pedestal) + y_offset[triplet_idx],
@@ -106,7 +109,7 @@ def plot_event_ts_new(ts, marocdata):
 #    b: offset + (mu + 5 * std) for b, (mu, std) in marocdata.noise_tot.items()
 # }
 sigma = int(sys.argv[2])
-pedestals = marocdata.pedestals_tot
+pedestals_tot = marocdata.pedestals_tot
 noise_tot = marocdata.noise_tot(sigma)
 
 
@@ -127,7 +130,7 @@ def take_consecutive(index_list):
 
 
 def over_threshold_per_board(marocdata, pedestals, noise):
-    over_threshold_per_board = {}
+    ts_over_threshold_per_board = {}
     for bid in marocdata.active_boards:
         timestamps = []
         board = marocdata.get_board(bid)
@@ -142,8 +145,8 @@ def over_threshold_per_board(marocdata, pedestals, noise):
                         event = board.get_event(eid)
                         # print(bid, eid, consecutives)
                         timestamps.append(event.TS_norm)
-        over_threshold_per_board[bid] = timestamps
-    return over_threshold_per_board
+        ts_over_threshold_per_board[bid] = timestamps
+    return ts_over_threshold_per_board
 
 
 """ def over_threshold_per_board(marocdata, pedestals, noise_tot):
