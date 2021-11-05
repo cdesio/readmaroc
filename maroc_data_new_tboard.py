@@ -108,13 +108,48 @@ class Board:
         indices.append(len(ts))
         return indices
 
+    # @property
+    # def timestamps(self):
+    #     if self._timestamps is None:
+    #         ts_eid_map = {evt.TS: eid for eid, evt in list(self.events.items())}
+
+    #         # if self._ref_evtid>self._second_evt_id:
+
+    #         ts = list(ts_eid_map.keys())
+    #         ids = list(ts_eid_map.values())
+    #         if ids[0] > ids[1]:
+    #             self._ref_evtid = ids[1]
+    #             ts_64 = np.asarray(ts[self._ref_evtid :], dtype=np.uint64)
+    #             clean_ids = list(ts_eid_map.values())[1:]
+
+    #         else:
+    #             self._ref_evtid = ids[0]
+    #             ts_64 = np.asarray(ts, dtype=np.uint64)
+    #             clean_ids = ids
+    #         overflow = self.overflow_idx(ts)
+    #         restart = True if len(overflow) > 2 else False
+    #         if restart:
+    #             ts_0 = ts_64[0]
+    #             ts_64[: overflow[0]] -= ts_0
+    #             for i, (start, stop) in enumerate(zip(overflow, overflow[1:])):
+    #                 # print(start)
+    #                 ts_restart = ts_64[start]
+    #                 ts_64[start:stop] += MAX_UINT32 * (i + 1)
+    #                 ts_64[start:stop] -= ts_restart
+    #         else:
+    #             ts_0 = ts_64[0]
+    #             ts_64 -= ts_0
+    #         self._timestamps = {eid: ts_mod for eid, ts_mod in zip(clean_ids, ts_64)}
+
+    #         for eid, ets in self._timestamps.items():
+    #             self.set_tsnorm(eid, ets)
+    #     return self._timestamps
+
     @property
     def timestamps(self):
         if self._timestamps is None:
             ts_eid_map = {evt.TS: eid for eid, evt in list(self.events.items())}
-
             # if self._ref_evtid>self._second_evt_id:
-
             ts = list(ts_eid_map.keys())
             ids = list(ts_eid_map.values())
             if ids[0] > ids[1]:
@@ -126,15 +161,8 @@ class Board:
                 self._ref_evtid = ids[0]
                 ts_64 = np.asarray(ts, dtype=np.uint64)
                 clean_ids = ids
-
-            for start, stop in zip(self.overflow_idx(ts), self.overflow_idx(ts)[1:]):
-                # print(start)
-                ts_0 = ts_64[0]
-                ts_restart = ts_64[start]
-
-                ts_64[:start] -= ts_0
-                # ts_64[start:stop] += MAX_UINT32
-                ts_64[start:stop] -= ts_restart
+            ts_0 = ts_64[0]
+            ts_64 -= ts_0
             self._timestamps = {eid: ts_mod for eid, ts_mod in zip(clean_ids, ts_64)}
 
             for eid, ets in self._timestamps.items():
@@ -166,7 +194,15 @@ class Board:
             event.TS_norm = ts
 
     @staticmethod
-    def correct_signal(signal, common_mode_threshold=400):
+    def reorder_marocs(signal, marocs, reorder_map=[0, 3, 1, -2, -2]) -> np.ndarray:
+        reordered_array = np.zeros(signal.shape[0])
+        for m, (a, b) in enumerate(marocs):
+            reordered_array[a + reorder_map[m] * 64 : b + reorder_map[m] * 64] = signal[
+                a:b
+            ]
+        return reordered_array
+
+    def correct_signal(self, signal, common_mode_threshold=400):
         signal_to_correct = np.copy(signal)
         maroc_n_strips = 64
         n_marocs = 5
@@ -185,7 +221,8 @@ class Board:
             maroc_strips = range(l, h)
             if np.mean(signal_to_correct[maroc_strips]) > common_mode_threshold:
                 signal_to_correct[maroc_strips] = signal_to_correct[maroc_strips] / 2
-        return signal_to_correct
+        reordered_signal = self.reorder_marocs(signal_to_correct, marocs)
+        return reordered_signal
 
     @property
     def avg_data(self):
@@ -302,3 +339,49 @@ class MarocData:
     @property
     def pedestals_tot(self):
         return {bid: self.get_board(bid).avg_data for bid in self.active_boards}
+
+    def check_clean_ts(self):
+        delta = []
+        boards_to_fix = []
+        for board in self.active_boards:
+            ts = np.asarray(list(self.get_board(board).timestamps.values()))
+            delta.append(ts[1])
+        for i, val in enumerate(delta):
+            if np.abs(val - np.mean(delta)) > np.std(delta):
+                boards_to_fix.append(i + 1)
+        count = 0
+        reference_board = max(
+            self._boards.values(), key=lambda b: len(b.clean_timestamps)
+        )
+        assert (
+            reference_board not in boards_to_fix
+        ), "Board to correct is reference board. Abort."
+        for board_id in boards_to_fix:  # sorted by BID
+            # clean_ts = all_clean_ts[board_id]
+            if board in self.active_boards:
+                board = self._boards[board_id]
+                ref_timestamps = [
+                    ts for ts, _ in reference_board.clean_timestamps.items()
+                ]
+                ref_ts = ref_timestamps[1]
+                original_TS = [event.TS for _, event in board.events.items()]
+                original_evt_id = [evt.evt_id for _, evt in board.events.items()]
+                if original_evt_id[0] > original_evt_id[1]:
+                    timestamps_to_clean = original_TS[1:]
+                    evt_id_to_clean = original_evt_id[1:]
+                else:
+                    timestamps_to_clean = original_TS
+                    evt_id_to_clean = original_evt_id
+                second_ts = timestamps_to_clean[0]
+                start = second_ts - ref_ts
+                cleaned_ts = timestamps_to_clean - start
+                clean_timestamp_dict = {
+                    evt_id: ts for ts, evt_id in zip(cleaned_ts, evt_id_to_clean)
+                }
+                board.clean_timestamps = clean_timestamp_dict
+
+                print("Timestamps of board {} have been fixed".format(board_id))
+                count += 1
+        if count == 0:
+            print("Clean imestamps were already ok")
+        return

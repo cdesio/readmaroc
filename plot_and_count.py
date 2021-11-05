@@ -16,7 +16,9 @@ marocdata = MarocData(input_dat)
 
 y_offset = [12000, 10000, 8000, 4000, 2000]
 marocs = [(i, j) for i, j in zip(np.arange(0, 384, 64), np.arange(0, 384, 64)[1:])]
-
+check_ts = np.bool(sys.argv[4])
+if check_ts:
+    marocdata.check_clean_ts()
 marocdata.fix_p1(debug=False)
 print("processing fname: {}".format(input_dat))
 
@@ -69,7 +71,7 @@ def board_plot(ax, ts, marocdata, board_id, board_idx, triplet_idx, c="blue"):
                 ax.text(
                     (320 + 320 * board_idx - 0 + (board_idx * 320)) / 2 - 150,
                     y_offset[triplet_idx] - 300,
-                    "board: {}".format(board_id),
+                    "board: {}, evt: {}".format(board_id, evt),
                     size="small",
                 )
                 ax.axvline(
