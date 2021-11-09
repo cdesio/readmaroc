@@ -14,6 +14,10 @@ import matplotlib.backends.backend_pdf
 input_dat = sys.argv[1]
 marocdata = MarocData(input_dat)
 
+all_boards = np.arange(1,31)
+non_active = [b for b in all_boards if b not in marocdata.active_boards]
+print('Boards {} not in this file'.format(non_active))
+
 y_offset = [12000, 10000, 8000, 4000, 2000]
 marocs = [(i, j) for i, j in zip(np.arange(0, 384, 64), np.arange(0, 384, 64)[1:])]
 check_ts = np.bool(sys.argv[4])
@@ -178,24 +182,24 @@ outfile_pdf = (
     + input_dat.split(".dat")[0].split("/")[-1]
     + "_output_ts_clean_fixed_p1_{}sigma_{}hits.pdf".format(sigma, no_hits)
 )
+if len(ts_to_plot)>0:
+    pdf = matplotlib.backends.backend_pdf.PdfPages(outfile_pdf)
 
-pdf = matplotlib.backends.backend_pdf.PdfPages(outfile_pdf)
-
-for ts in ts_to_plot:
-    fig, ax1, ax2 = plot_event_ts_new(ts, marocdata)
-    pdf.savefig(fig)
-    plt.close(fig)
-pdf.close()
-plt.close()
+    for ts in ts_to_plot:
+        fig, ax1, ax2 = plot_event_ts_new(ts, marocdata)
+        pdf.savefig(fig)
+        plt.close(fig)
+    pdf.close()
+    plt.close()
 
 counts_per_board = {bid: len(tss) for bid, tss in ts_over_threshold.items()}
 
-outfile_json = (
-    out_dir + "/" + input_dat.split(".dat")[0].split("/")[-1] + "_counts.json"
+outfile_json = os.path.join(
+    out_dir , input_dat.split(".dat")[0].split("/")[-1] + "_counts.json"
 )
 
 if not os.path.exists(outfile_json):
-    os.system("touch {}".format(outfile_json))
+    open(outfile_json, 'w').close()
 
 d = {str(k): value for k, value in counts_per_board.items()}
 with open(outfile_json, "r+") as file:
