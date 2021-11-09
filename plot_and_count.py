@@ -20,7 +20,7 @@ print('Boards {} not in this file'.format(non_active))
 
 y_offset = [12000, 10000, 8000, 4000, 2000]
 marocs = [(i, j) for i, j in zip(np.arange(0, 384, 64), np.arange(0, 384, 64)[1:])]
-check_ts = np.bool(sys.argv[4])
+check_ts = bool(sys.argv[4])
 if check_ts:
     marocdata.check_clean_ts()
 marocdata.fix_p1(debug=False)
@@ -175,12 +175,11 @@ no_hits = int(sys.argv[3])
 ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ >= no_hits]
 
 out_dir = sys.argv[4]
-
-outfile_pdf = (
-    out_dir
-    + "/"
-    + input_dat.split(".dat")[0].split("/")[-1]
-    + "_output_ts_clean_fixed_p1_{}sigma_{}hits.pdf".format(sigma, no_hits)
+print(out_dir)
+out_fname_pdf = input_dat.split(".dat")[0].split("/")[-1] + "_output_ts_clean_fixed_p1_{}sigma_{}hits.pdf".format(sigma, no_hits)
+print(out_fname_pdf)
+outfile_pdf = os.path.join(
+    out_dir,out_fname_pdf
 )
 if len(ts_to_plot)>0:
     pdf = matplotlib.backends.backend_pdf.PdfPages(outfile_pdf)
