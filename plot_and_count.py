@@ -187,7 +187,7 @@ ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ >= no_hits]
 
 out_dir = os.path.abspath(sys.argv[4])
 print("out_dir:", format(out_dir))
-out_fname_pdf = input_dat.split(".dat")[0].split("/")[
+out_fname_pdf = input_dat.split(".dat")[0].split(os.path.sep)[
     -1
 ] + "_output_ts_clean_fixed_p1_{}sigma_{}hits_test_ts.pdf".format(sigma, no_hits)
 
@@ -206,7 +206,7 @@ if len(ts_to_plot) > 0:
 counts_per_board = {bid: len(tss) for bid, tss in ts_over_threshold.items()}
 
 outfile_json = os.path.join(
-    out_dir, input_dat.split(".dat")[0].split("/")[-1] + "_counts.json"
+    out_dir, input_dat.split(".dat")[0].split(os.path.sep)[-1] + "_counts.json"
 )
 
 if not os.path.exists(outfile_json):
