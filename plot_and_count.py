@@ -12,19 +12,21 @@ from functools import reduce
 import matplotlib.backends.backend_pdf
 
 input_dat = sys.argv[1]
+print("processing fname: {}".format(input_dat))
+
 marocdata = MarocData(input_dat)
 
-all_boards = np.arange(1,31)
+all_boards = np.arange(1, 31)
 non_active = [b for b in all_boards if b not in marocdata.active_boards]
-print('Boards {} not in this file'.format(non_active))
+print("Boards {} not in this file".format(non_active))
 
 y_offset = [12000, 10000, 8000, 4000, 2000]
 marocs = [(i, j) for i, j in zip(np.arange(0, 384, 64), np.arange(0, 384, 64)[1:])]
+
 check_ts = bool(sys.argv[4])
 if check_ts:
     marocdata.check_clean_ts()
 marocdata.fix_p1(debug=False)
-print("processing fname: {}".format(input_dat))
 
 
 # offset = int(sys.argv[2])
@@ -39,6 +41,7 @@ noise_tot = marocdata.noise_tot(sigma)
 def board_plot(ax, ts, marocdata, board_id, board_idx, triplet_idx, c="blue"):
     if board_id in marocdata.active_boards:
         board = marocdata.get_board(board_id)
+        ref_evt = board.reference_event.evt_id
         if ts in board.clean_timestamps.keys():
             evt = board.clean_timestamps[ts]
             if evt in board:
@@ -75,7 +78,7 @@ def board_plot(ax, ts, marocdata, board_id, board_idx, triplet_idx, c="blue"):
                 ax.text(
                     (320 + 320 * board_idx - 0 + (board_idx * 320)) / 2 - 150,
                     y_offset[triplet_idx] - 300,
-                    "board: {}, evt: {}".format(board_id, evt),
+                    "board: {}, evt: {}".format(board_id, evt - ref_evt),
                     size="small",
                 )
                 ax.axvline(
@@ -85,25 +88,33 @@ def board_plot(ax, ts, marocdata, board_id, board_idx, triplet_idx, c="blue"):
                     color="grey",
                     alpha=0.5,
                 )
+                for _, j in marocs:
+                    ax.axvline(
+                        j + 320 * board_idx,
+                        linewidth=0.5,
+                        linestyle="--",
+                        c="grey",
+                        alpha=0.25,
+                    )
     return ax
 
 
 def plot_event_ts_new(ts, marocdata):
-    print(ts)
+    print("Plotting TS: {}".format(ts))
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 10), sharey=True, sharex=True)
-    evt = None
     for i, (triplet_y, triplet_x) in enumerate(
         zip(np.arange(1, 16).reshape(5, 3), np.arange(16, 31).reshape(5, 3))
     ):
         for j, (board_y, board_x) in enumerate(zip(triplet_y, triplet_x)):
             if board_y in marocdata.active_boards:
-                yboard = marocdata.get_board(board_y)
+                # yboard = marocdata.get_board(board_y)
                 ax1 = board_plot(ax1, ts, marocdata, board_y, j, i)
             if board_x in marocdata.active_boards:
-                xboard = marocdata.get_board(board_x)
+                # xboard = marocdata.get_board(board_x)
                 ax2 = board_plot(ax2, ts, marocdata, board_x, j, i, c="red")
     #    if (evt is None):
     #        return None # skip
+
     ax1.set_title("y layers", size="x-large")
     ax2.set_title("x layers", size="x-large")
     plt.yticks(
@@ -115,7 +126,7 @@ def plot_event_ts_new(ts, marocdata):
     fig.text(0.5, 0.05, "strips", size="large")
     fig.text(0.5, 0.95, "TS {}".format(ts), size="large")
     plt.ylim(1000, 13000)
-    plt.xlim(-10, 970)
+    plt.xlim(0, 960)
     return fig, ax1, ax2
 
 
@@ -174,14 +185,15 @@ all_ts = reduce(add, ts_over_threshold.values())
 no_hits = int(sys.argv[3])
 ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ >= no_hits]
 
-out_dir = sys.argv[4]
-print(out_dir)
-out_fname_pdf = input_dat.split(".dat")[0].split("/")[-1] + "_output_ts_clean_fixed_p1_{}sigma_{}hits.pdf".format(sigma, no_hits)
-print(out_fname_pdf)
-outfile_pdf = os.path.join(
-    out_dir,out_fname_pdf
-)
-if len(ts_to_plot)>0:
+out_dir = os.path.abspath(sys.argv[4])
+print("out_dir:", format(out_dir))
+out_fname_pdf = input_dat.split(".dat")[0].split("/")[
+    -1
+] + "_output_ts_clean_fixed_p1_{}sigma_{}hits_test_ts.pdf".format(sigma, no_hits)
+
+outfile_pdf = os.path.join(out_dir, out_fname_pdf)
+print("out_fname:{}".format(out_fname_pdf))
+if len(ts_to_plot) > 0:
     pdf = matplotlib.backends.backend_pdf.PdfPages(outfile_pdf)
 
     for ts in ts_to_plot:
@@ -194,11 +206,11 @@ if len(ts_to_plot)>0:
 counts_per_board = {bid: len(tss) for bid, tss in ts_over_threshold.items()}
 
 outfile_json = os.path.join(
-    out_dir , input_dat.split(".dat")[0].split("/")[-1] + "_counts.json"
+    out_dir, input_dat.split(".dat")[0].split("/")[-1] + "_counts.json"
 )
 
 if not os.path.exists(outfile_json):
-    open(outfile_json, 'w').close()
+    open(outfile_json, "w").close()
 
 d = {str(k): value for k, value in counts_per_board.items()}
 with open(outfile_json, "r+") as file:

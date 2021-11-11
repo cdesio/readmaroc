@@ -220,7 +220,7 @@ class Board:
             l, h = m
             maroc_strips = range(l, h)
             if np.mean(signal_to_correct[maroc_strips]) > common_mode_threshold:
-                signal_to_correct[maroc_strips] = signal_to_correct[maroc_strips] / 2
+                signal_to_correct[maroc_strips] = signal_to_correct[maroc_strips] / 2.0
         reordered_signal = self.reorder_marocs(signal_to_correct, marocs)
         return reordered_signal
 
