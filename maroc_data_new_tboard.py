@@ -358,7 +358,7 @@ class MarocData:
         ), "Board to correct is reference board. Abort."
         for board_id in boards_to_fix:  # sorted by BID
             # clean_ts = all_clean_ts[board_id]
-            if board in self.active_boards:
+            if board_id in self.active_boards:
                 board = self._boards[board_id]
                 ref_timestamps = [
                     ts for ts, _ in reference_board.clean_timestamps.items()
