@@ -196,6 +196,7 @@ class Board:
     @staticmethod
     def reorder_marocs(signal, marocs, reorder_map=[0, 3, 1, -2, -2]) -> np.ndarray:
         reordered_array = np.zeros(signal.shape[0])
+
         for m, (a, b) in enumerate(marocs):
             reordered_array[a + reorder_map[m] * 64 : b + reorder_map[m] * 64] = signal[
                 a:b
@@ -221,7 +222,9 @@ class Board:
             maroc_strips = range(l, h)
             if np.mean(signal_to_correct[maroc_strips]) > common_mode_threshold:
                 signal_to_correct[maroc_strips] = signal_to_correct[maroc_strips] / 2.0
-        reordered_signal = self.reorder_marocs(signal_to_correct, marocs)
+        reordered_signal = self.reorder_marocs(
+            signal_to_correct, marocs, reorder_map=[1, -1, 0, 0, 0]
+        )
         return reordered_signal
 
     @property
