@@ -33,25 +33,25 @@ def board_plot(
             evt = board.clean_timestamps[ts]
             if evt in board:
                 signal = board.signals[evt]
-                if check_faulty_ribbon(signal):
-                    pass
                 if np.max(signal) > 2000:
                     signal = signal * 0.45
                 pedestal = ped[board_id]
                 noise_board = noise[board_id]
+
                 if np.any(signal - pedestal > noise_board):
                     over = np.where(signal - pedestal > noise_board)[0]
                     seed = np.max((signal - pedestal)[over])
                     over_x = np.where(signal - pedestal == seed)[0][0]
-                    ax.scatter(
-                        over_x + (board_idx * 320),
-                        seed + y_offset[triplet_idx],
-                        color="k",
-                        marker="s",
-                        s=400,
-                        facecolors="none",
-                        alpha=0.7,
-                    )
+                    if not check_faulty_ribbon(signal):
+                        ax.scatter(
+                            over_x + (board_idx * 320),
+                            seed + y_offset[triplet_idx],
+                            color="k",
+                            marker="s",
+                            s=400,
+                            facecolors="none",
+                            alpha=0.7,
+                        )
                 ax.plot(
                     np.arange(0 + (board_idx * 320), 320 + 320 * board_idx),
                     (signal - pedestal) + y_offset[triplet_idx],
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     ts_to_plot = [
         ts for ts, occ in Counter(all_ts).items() if occ >= no_hits and occ < 11
     ]
-
+    print(len(ts_to_plot))
     out_dir = os.path.abspath(sys.argv[4])
     print("out_dir:", format(out_dir))
     out_fname_pdf = input_dat.split(".dat")[0].split(os.path.sep)[
