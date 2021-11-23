@@ -213,7 +213,7 @@ if __name__ == "__main__":
     print("out_dir:", format(out_dir))
     out_fname_pdf = input_dat.split(".dat")[0].split(os.path.sep)[
         -1
-    ] + "_output_ts_clean_fixed_p1_{}sigma_{}hits_test_ts.pdf".format(sigma, no_hits)
+    ] + "_output_ts_clean_fixed_p1_{}sigma_{}hits.pdf".format(sigma, no_hits)
 
     outfile_pdf = os.path.join(out_dir, out_fname_pdf)
     print("out_fname:{}".format(outfile_pdf))
