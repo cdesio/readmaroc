@@ -33,6 +33,8 @@ def board_plot(
             evt = board.clean_timestamps[ts]
             if evt in board:
                 signal = board.signals[evt]
+                if check_faulty_ribbon(signal):
+                    pass
                 if np.max(signal) > 2000:
                     signal = signal * 0.45
                 pedestal = ped[board_id]
@@ -133,12 +135,34 @@ def take_consecutive(index_list):
             return np.unique(consecutive)
 
 
+def check_faulty_ribbon(signal, delta_signal=100, n_oscillations=30):
+    counts = np.zeros(5)
+    for k, (mi, mj) in enumerate(marocs):
+        count_maroc = 0
+        for (i, si), (j, sj) in zip(
+            enumerate(signal[mi:mj]), enumerate(signal[mi:mj][1:])
+        ):
+            if np.abs(sj - si) > delta_signal:
+                count_maroc += 1
+                # print(i, j, si, sj)
+        if count_maroc > n_oscillations:
+            # print("maroc {}, no. oscillations: {}".format(k, count_maroc))
+            counts[k] = 1
+    # print(counts)
+    if np.any(counts == 1):
+        return True
+    else:
+        return False
+
+
 def over_threshold_per_board(marocdata, pedestals, noise):
     ts_over_threshold_per_board = {}
     for bid in marocdata.active_boards:
         timestamps = []
         board = marocdata.get_board(bid)
         for eid, signal in board.signals.items():
+            if check_faulty_ribbon(signal):
+                pass
             if np.any((signal - pedestals[bid]) > noise[bid]):
                 over = np.sort(np.where((signal - pedestals[bid]) > noise[bid])[0])
                 consecutives = take_consecutive(over)
@@ -181,7 +205,9 @@ if __name__ == "__main__":
 
     all_ts = reduce(add, ts_over_threshold.values())
     no_hits = int(sys.argv[3])
-    ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ >= no_hits]
+    ts_to_plot = [
+        ts for ts, occ in Counter(all_ts).items() if occ >= no_hits and occ < 11
+    ]
 
     out_dir = os.path.abspath(sys.argv[4])
     print("out_dir:", format(out_dir))

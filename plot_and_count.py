@@ -11,34 +11,21 @@ from functools import reduce
 
 import matplotlib.backends.backend_pdf
 
-input_dat = sys.argv[1]
-print("processing fname: {}".format(input_dat))
-
-marocdata = MarocData(input_dat)
-
-all_boards = np.arange(1, 31)
-non_active = [b for b in all_boards if b not in marocdata.active_boards]
-print("Boards {} not in this file".format(non_active))
-
 y_offset = [12000, 10000, 8000, 4000, 2000]
 marocs = [(i, j) for i, j in zip(np.arange(0, 384, 64), np.arange(0, 384, 64)[1:])]
 
-check_ts = bool(sys.argv[4])
-if check_ts:
-    marocdata.check_clean_ts()
-marocdata.fix_p1(debug=False)
 
-
-# offset = int(sys.argv[2])
-# thresholds = {
-#    b: offset + (mu + 5 * std) for b, (mu, std) in marocdata.noise_tot.items()
-# }
-sigma = int(sys.argv[2])
-pedestals_tot = marocdata.pedestals_tot
-noise_tot = marocdata.noise_tot(sigma)
-
-
-def board_plot(ax, ts, marocdata, board_id, board_idx, triplet_idx, c="blue"):
+def board_plot(
+    ax,
+    ts,
+    marocdata,
+    ped,
+    noise,
+    board_id,
+    board_idx,
+    triplet_idx,
+    c="blue",
+):
     if board_id in marocdata.active_boards:
         board = marocdata.get_board(board_id)
         ref_evt = board.reference_event.evt_id
@@ -46,12 +33,14 @@ def board_plot(ax, ts, marocdata, board_id, board_idx, triplet_idx, c="blue"):
             evt = board.clean_timestamps[ts]
             if evt in board:
                 signal = board.signals[evt]
+                if check_faulty_ribbon(signal):
+                    pass
                 if np.max(signal) > 2000:
                     signal = signal * 0.45
-                pedestal = pedestals_tot[board_id]
-                noise = noise_tot[board_id]
-                if np.any(signal - pedestal > noise):
-                    over = np.where(signal - pedestal > noise)[0]
+                pedestal = ped[board_id]
+                noise_board = noise[board_id]
+                if np.any(signal - pedestal > noise_board):
+                    over = np.where(signal - pedestal > noise_board)[0]
                     seed = np.max((signal - pedestal)[over])
                     over_x = np.where(signal - pedestal == seed)[0][0]
                     ax.scatter(
@@ -99,7 +88,7 @@ def board_plot(ax, ts, marocdata, board_id, board_idx, triplet_idx, c="blue"):
     return ax
 
 
-def plot_event_ts_new(ts, marocdata):
+def plot_event_ts_new(ts, marocdata, ped, noise):
     print("Plotting TS: {}".format(ts))
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 10), sharey=True, sharex=True)
     for i, (triplet_y, triplet_x) in enumerate(
@@ -108,10 +97,10 @@ def plot_event_ts_new(ts, marocdata):
         for j, (board_y, board_x) in enumerate(zip(triplet_y, triplet_x)):
             if board_y in marocdata.active_boards:
                 # yboard = marocdata.get_board(board_y)
-                ax1 = board_plot(ax1, ts, marocdata, board_y, j, i)
+                ax1 = board_plot(ax1, ts, marocdata, ped, noise, board_y, j, i)
             if board_x in marocdata.active_boards:
                 # xboard = marocdata.get_board(board_x)
-                ax2 = board_plot(ax2, ts, marocdata, board_x, j, i, c="red")
+                ax2 = board_plot(ax2, ts, marocdata, ped, noise, board_x, j, i, c="red")
     #    if (evt is None):
     #        return None # skip
 
@@ -146,12 +135,34 @@ def take_consecutive(index_list):
             return np.unique(consecutive)
 
 
+def check_faulty_ribbon(signal, delta_signal=100, n_oscillations=30):
+    counts = np.zeros(5)
+    for k, (mi, mj) in enumerate(marocs):
+        count_maroc = 0
+        for (i, si), (j, sj) in zip(
+            enumerate(signal[mi:mj]), enumerate(signal[mi:mj][1:])
+        ):
+            if np.abs(sj - si) > delta_signal:
+                count_maroc += 1
+                # print(i, j, si, sj)
+        if count_maroc > n_oscillations:
+            # print("maroc {}, no. oscillations: {}".format(k, count_maroc))
+            counts[k] = 1
+    # print(counts)
+    if np.any(counts == 1):
+        return True
+    else:
+        return False
+
+
 def over_threshold_per_board(marocdata, pedestals, noise):
     ts_over_threshold_per_board = {}
     for bid in marocdata.active_boards:
         timestamps = []
         board = marocdata.get_board(bid)
         for eid, signal in board.signals.items():
+            if check_faulty_ribbon(signal):
+                pass
             if np.any((signal - pedestals[bid]) > noise[bid]):
                 over = np.sort(np.where((signal - pedestals[bid]) > noise[bid])[0])
                 consecutives = take_consecutive(over)
@@ -166,52 +177,67 @@ def over_threshold_per_board(marocdata, pedestals, noise):
     return ts_over_threshold_per_board
 
 
-""" def over_threshold_per_board(marocdata, pedestals, noise_tot):
-    over_threshold_per_board = {}
-    for bid in marocdata.active_boards:
-        timestamps = []
-        board = marocdata.get_board(bid)
-        for eid, signal in board.signals.items():
-            if np.any((signal - pedestals[bid]) > noise_tot[bid]):
-                event = board.get_event(eid)
-                timestamps.append(event.TS_norm)
-        over_threshold_per_board[bid] = timestamps
-    return over_threshold_per_board """
+if __name__ == "__main__":
 
+    input_dat = sys.argv[1]
+    print("processing fname: {}".format(input_dat))
 
-ts_over_threshold = over_threshold_per_board(marocdata, pedestals_tot, noise_tot)
+    marocdata = MarocData(input_dat)
 
-all_ts = reduce(add, ts_over_threshold.values())
-no_hits = int(sys.argv[3])
-ts_to_plot = [ts for ts, occ in Counter(all_ts).items() if occ >= no_hits]
+    all_boards = np.arange(1, 31)
+    non_active = [b for b in all_boards if b not in marocdata.active_boards]
+    print("Boards {} not in this file".format(non_active))
 
-out_dir = os.path.abspath(sys.argv[4])
-print("out_dir:", format(out_dir))
-out_fname_pdf = input_dat.split(".dat")[0].split(os.path.sep)[
-    -1
-] + "_output_ts_clean_fixed_p1_{}sigma_{}hits_test_ts.pdf".format(sigma, no_hits)
+    check_ts = bool(sys.argv[4])
+    if check_ts:
+        marocdata.check_clean_ts()
+    marocdata.fix_p1(debug=False)
 
-outfile_pdf = os.path.join(out_dir, out_fname_pdf)
-print("out_fname:{}".format(outfile_pdf))
-if len(ts_to_plot) > 0:
-    pdf = matplotlib.backends.backend_pdf.PdfPages(outfile_pdf)
+    # offset = int(sys.argv[2])
+    # thresholds = {
+    #    b: offset + (mu + 5 * std) for b, (mu, std) in marocdata.noise_tot.items()
+    # }
+    sigma = int(sys.argv[2])
+    pedestals_tot = marocdata.pedestals_tot
+    noise_tot = marocdata.noise_tot(sigma)
 
-    for ts in ts_to_plot:
-        fig, ax1, ax2 = plot_event_ts_new(ts, marocdata)
-        pdf.savefig(fig)
-        plt.close(fig)
-    pdf.close()
-    plt.close()
+    ts_over_threshold = over_threshold_per_board(marocdata, pedestals_tot, noise_tot)
 
-counts_per_board = {bid: len(tss) for bid, tss in ts_over_threshold.items()}
+    all_ts = reduce(add, ts_over_threshold.values())
+    no_hits = int(sys.argv[3])
+    ts_to_plot = [
+        ts for ts, occ in Counter(all_ts).items() if occ >= no_hits and occ < 11
+    ]
 
-outfile_json = os.path.join(
-    out_dir, input_dat.split(".dat")[0].split(os.path.sep)[-1] + "_counts.json"
-)
+    out_dir = os.path.abspath(sys.argv[4])
+    print("out_dir:", format(out_dir))
+    out_fname_pdf = input_dat.split(".dat")[0].split(os.path.sep)[
+        -1
+    ] + "_output_ts_clean_fixed_p1_{}sigma_{}hits_test_ts.pdf".format(sigma, no_hits)
 
-if not os.path.exists(outfile_json):
-    open(outfile_json, "w").close()
+    outfile_pdf = os.path.join(out_dir, out_fname_pdf)
+    print("out_fname:{}".format(outfile_pdf))
+    if len(ts_to_plot) > 0:
+        pdf = matplotlib.backends.backend_pdf.PdfPages(outfile_pdf)
 
-d = {str(k): value for k, value in counts_per_board.items()}
-with open(outfile_json, "r+") as file:
-    json.dump(d, open(outfile_json, "w"))
+        for ts in ts_to_plot:
+            fig, ax1, ax2 = plot_event_ts_new(
+                ts, marocdata, ped=pedestals_tot, noise=noise_tot
+            )
+            pdf.savefig(fig)
+            plt.close(fig)
+        pdf.close()
+        plt.close()
+
+    counts_per_board = {bid: len(tss) for bid, tss in ts_over_threshold.items()}
+
+    outfile_json = os.path.join(
+        out_dir, input_dat.split(".dat")[0].split(os.path.sep)[-1] + "_counts.json"
+    )
+
+    if not os.path.exists(outfile_json):
+        open(outfile_json, "w").close()
+
+    d = {str(k): value for k, value in counts_per_board.items()}
+    with open(outfile_json, "r+") as file:
+        json.dump(d, open(outfile_json, "w"))
