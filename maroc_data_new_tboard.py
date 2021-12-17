@@ -63,7 +63,13 @@ class Board:
         self.bid = bid
         self.dec = dec
         self.events = {}
-        self._avg_data = None
+        self._pedestal_1st = None
+        self._pedestal_2nd = None
+        self._sign_ped_corr = None
+        self._pedestal = None
+        self._noise_1st = None
+        self._noise_2nd = None
+        self._noise_final = None
         self._noise = None
         self._signals = None
         self._ref_evtid = None
@@ -72,8 +78,14 @@ class Board:
 
     def add(self, event: Event):
         self.events[event.evt_id] = event
-        self._avg_data = None
+        self._pedestal_1st = None
+        self._pedestal_2nd = None
         self._noise = None
+        self._noise_1st = None
+        self._noise_2nd = None
+        self._noise_final = None
+        self._pedestal = None
+        self._sign_ped_corr = None
         self._signals = None
         # self._timestamps = None
 
@@ -95,7 +107,9 @@ class Board:
     def signals(self):
         if self._signals is None:
             self._signals = {
-                eid: self.correct_signal(evt.signal) for eid, evt in self.events.items()
+                # eid: self.do_common_mode(self.reorder_signal(evt.signal), marocs)
+                eid: self.reorder_signal(self.fix_doubling(evt.signal))
+                for eid, evt in self.events.items()
             }
         return self._signals
 
@@ -203,35 +217,139 @@ class Board:
             ]
         return reordered_array
 
-    def correct_signal(self, signal, common_mode_threshold=400):
+    def reorder_signal(self, signal):
         signal_to_correct = np.copy(signal)
-        maroc_n_strips = 64
-        n_marocs = 5
-        marocs = [
-            (i, j)
-            for i, j in zip(
-                np.arange(0, maroc_n_strips * (n_marocs + 1), maroc_n_strips),
-                np.arange(0, maroc_n_strips * (n_marocs + 1), maroc_n_strips)[1:],
-            )
-        ]
-        for (
-            i,
-            m,
-        ) in enumerate(marocs):
-            l, h = m
-            maroc_strips = range(l, h)
-            if np.mean(signal_to_correct[maroc_strips]) > common_mode_threshold:
-                signal_to_correct[maroc_strips] = signal_to_correct[maroc_strips] / 2.0
-        reordered_signal = self.reorder_marocs(
-            signal_to_correct, marocs, reorder_map=[1, -1, 0, 0, 0]
-        )
+        reordered_signal = self.reorder_marocs(signal_to_correct, marocs)
         return reordered_signal
 
+    @staticmethod
+    def fix_doubling(signal, common_mode_threshold=400):
+        signal_to_correct = np.copy(signal)
+        for _, (l, h) in enumerate(marocs):
+            mu = np.mean(signal[l:h])
+            std = np.std(signal[l:h])
+            # over = np.where(signal[l:h]>=mu+3*std)[0]
+            under = np.where(signal[l:h] <= mu + 3 * std)[0]
+            mean2 = np.mean(signal[l:h][under])
+            # print(mu, mean2)
+            if mean2 > common_mode_threshold:
+                signal_to_correct[l:h] = signal[l:h] / 2.0
+        return signal_to_correct
+
+    @staticmethod
+    def do_common_mode(signal, noise):
+        signal_out = np.copy(signal)
+        for i, (l, h) in enumerate(marocs):
+            mu = np.mean(signal[l:h])
+            std = np.std(signal[l:h])
+            # print(i, mu, std)
+            over = np.where(signal[l:h] >= mu)[0]
+            under = np.where(signal[l:h] < mu)[0]
+            if over.shape[0] == 0:
+                common_mode = 0
+                raise ("No strips available for common mode correction. Skip")
+            common_mode = np.mean(signal[l:h][under])
+            signal_out[l:h] = signal[l:h] - common_mode
+        return signal_out
+
+    @staticmethod
+    def check_faulty_ribbon(signal, delta_signal=100, n_oscillations=30):
+        counts = np.zeros(5)
+        for k, (mi, mj) in enumerate(marocs):
+            count_maroc = 0
+            diff = []
+            for (i, si), (j, sj) in zip(
+                enumerate(signal[mi:mj]), enumerate(signal[mi:mj][1:])
+            ):
+                if np.abs(sj - si) > delta_signal:
+                    diff.append(np.abs(sj - si))
+                    # print(k, np.abs(sj - si))
+                    count_maroc += 1
+                    # print(count_maroc)
+                    # print(i, j, si, sj)
+            if count_maroc > n_oscillations:
+                counts[k] = 1
+                print("maroc {}, no. oscillations: {}".format(k, count_maroc))
+                print(counts, np.mean(diff))
+        if np.any(counts == 1):
+            # print('counts==1')
+            return True
+        else:
+            # print('false')
+            return False
+
+    def musigma_1st(self):
+        if self._pedestal_1st is None and self._noise_1st is None:
+            self._pedestal_1st = np.mean(
+                np.asarray(list(self.signals.values())), axis=0
+            )
+            self._noise_1st = np.std(np.asarray(list(self.signals.values())), axis=0)
+        return self._pedestal_1st, self._noise_1st
+
     @property
-    def avg_data(self):
-        if self._avg_data is None:
-            self._avg_data = np.mean(np.asarray(list(self.signals.values())), axis=0)
-        return self._avg_data
+    def pedestal_1st(self):
+        self._pedestal_1st, _ = self.musigma_1st()
+        return self._pedestal_1st
+
+    @property
+    def noise_1st(self):
+        _, self._noise_1st = self.musigma_1st()
+        return self._noise_1st
+
+    def musigma_2nd(self, sigma=4):
+        if self._pedestal_2nd is None and self._noise_2nd is None:
+            good = []
+            # print(self.bid, len(self.signals.values()))
+            for sig in self.signals.values():
+
+                if (
+                    np.any((sig - self.pedestal_1st) > self._noise_1st * sigma)
+                    or self.check_faulty_ribbon(sig) == True
+                ):
+                    continue
+                good.append(sig)
+            # print(len(good))
+            self._pedestal_2nd = np.mean(good, axis=0)
+            self._noise_2nd = np.std(good, axis=0)
+        return self._pedestal_2nd, self._noise_2nd
+
+    @property
+    def pedestal_2nd(self):
+        self._pedestal_2nd, _ = self.musigma_2nd()
+        return self._pedestal_2nd
+
+    @property
+    def noise_2nd(self):
+        _, self._noise_2nd = self.musigma_2nd()
+        return self._noise_2nd
+
+    def musigma_final(self, sigma=4):
+        if self._sign_ped_corr is None and self._noise_final is None:
+            good = []
+            # print(self.bid, len(self.signals.values()))
+            for sig in self.signals.values():
+
+                if (
+                    np.any((sig - self.pedestal_2nd) > self.noise_2nd * sigma)
+                    or self.check_faulty_ribbon(sig) == True
+                ):
+                    continue
+                good.append(sig)
+            # print(len(good))
+            good = self.do_common_mode(good - self.pedestal_2nd, self.noise_2nd)
+            self._sign_ped_corr = np.mean(good, axis=0)
+            self._noise_final = np.std(good, axis=0)
+        return self._sign_ped_corr, self._noise_final
+
+    @property
+    def sign_ped_corr(self):
+        self._sign_ped_corr, _ = self.musigma_final()
+        return self._sign_ped_corr
+
+    @property
+    def noise_final(self):
+        _, self._noise_final = self.musigma_final()
+        return self._noise_final
 
     @property
     def noise(self):
@@ -242,7 +360,7 @@ class Board:
                     list(
                         (
                             map(
-                                lambda dat: np.sqrt((dat - self.avg_data) ** 2),
+                                lambda dat: np.sqrt((dat - self._pedestal_1st) ** 2),
                                 np.asarray(list(self.signals.values())),
                             )
                         )
