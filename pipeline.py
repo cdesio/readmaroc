@@ -352,41 +352,76 @@ def find_hits(
                     if output:
                         print("evt {} found 1 peak.".format(eid))
 
-                for peak in peaks:
-                    max_strip_y = signal[peak]
-                    seed = peak
-                    if output:
-                        print(
-                            "evt: {}, seed: {}, signal: {}, searching in [{}, {}]".format(
-                                eid,
-                                seed,
-                                signal[seed],
-                                max(seed - 40, 0),
-                                min(seed + 40, 320),
-                            )
+                # print(np.max(signal[peaks]), peaks[np.argmax(signal[peaks])])
+                max_strip_y = np.max(signal[peaks])
+                seed = peaks[np.argmax(signal[peaks])]
+
+                # print(max_strip_y, seed)
+                if output:
+                    print(
+                        "evt: {}, seed: {}, signal: {}, searching in [{}, {}]".format(
+                            eid,
+                            seed,
+                            signal[seed],
+                            max(seed - 40, 0),
+                            min(seed + 40, 320),
                         )
-                    s_l = signal[max(seed - 40, 0) : seed - 3]
-                    n_l = noise[max(seed - 40, 0) : seed - 3]
-                    mask_l = np.ma.MaskedArray(s_l, s_l >= 2 * n_l)
+                    )
+                s_l = signal[max(seed - 40, 0) : seed - 3]
+                n_l = noise[max(seed - 40, 0) : seed - 3]
+                mask_l = np.ma.MaskedArray(s_l, s_l >= 2 * n_l)
 
-                    s_u = signal[seed + 3 : min(seed + 40, 320)]
-                    n_u = noise[seed + 3 : min(seed + 40, 320)]
+                s_u = signal[seed + 3 : min(seed + 40, 320)]
+                n_u = noise[seed + 3 : min(seed + 40, 320)]
 
-                    mask_u = np.ma.MaskedArray(s_u, s_u >= 2 * n_u)
-                    if len(mask_l) and len(mask_u):
-                        lower_x = np.ma.argmin(mask_l) + max(seed - 40, 0)
-                        upper_x = np.ma.argmin(mask_u) + seed + 3
-                        if (
-                            signal[seed] - signal[lower_x] > 30
-                            and signal[seed] - signal[upper_x] > 30
-                        ):
-                            if output:
-                                print(
-                                    f"seed: {seed}, lower: {lower_x}, upper: {upper_x}"
-                                )
-                            hits_out.hit.append(seed)
-                            hits_out.left.append(lower_x)
-                            hits_out.right.append(upper_x)
+                mask_u = np.ma.MaskedArray(s_u, s_u >= 2 * n_u)
+                if len(mask_l) and len(mask_u):
+                    lower_x = np.ma.argmin(mask_l) + max(seed - 40, 0)
+                    upper_x = np.ma.argmin(mask_u) + seed + 3
+                    if (
+                        signal[seed] - signal[lower_x] > 30
+                        and signal[seed] - signal[upper_x] > 30
+                    ):
+                        if output:
+                            print(f"seed: {seed}, lower: {lower_x}, upper: {upper_x}")
+                        hits_out.hit.append(seed)
+                        hits_out.left.append(lower_x)
+                        hits_out.right.append(upper_x)
+                    # for peak in peaks:
+                    #     max_strip_y = signal[peak]
+                    #     seed = peak
+                    #     if output:
+                    #         print(
+                    #             "evt: {}, seed: {}, signal: {}, searching in [{}, {}]".format(
+                    #                 eid,
+                    #                 seed,
+                    #                 signal[seed],
+                    #                 max(seed - 40, 0),
+                    #                 min(seed + 40, 320),
+                    #             )
+                    #         )
+                    #     s_l = signal[max(seed - 40, 0) : seed - 3]
+                    #     n_l = noise[max(seed - 40, 0) : seed - 3]
+                    #     mask_l = np.ma.MaskedArray(s_l, s_l >= 2 * n_l)
+
+                    #     s_u = signal[seed + 3 : min(seed + 40, 320)]
+                    #     n_u = noise[seed + 3 : min(seed + 40, 320)]
+
+                    #     mask_u = np.ma.MaskedArray(s_u, s_u >= 2 * n_u)
+                    #     if len(mask_l) and len(mask_u):
+                    #         lower_x = np.ma.argmin(mask_l) + max(seed - 40, 0)
+                    #         upper_x = np.ma.argmin(mask_u) + seed + 3
+                    #         if (
+                    #             signal[seed] - signal[lower_x] > 30
+                    #             and signal[seed] - signal[upper_x] > 30
+                    #         ):
+                    #             if output:
+                    #                 print(
+                    #                     f"seed: {seed}, lower: {lower_x}, upper: {upper_x}"
+                    #                 )
+                    #             hits_out.hit.append(seed)
+                    #             hits_out.left.append(lower_x)
+                    #             hits_out.right.append(upper_x)
                     # hits_out["left"] = lefts.append(lower_x)
                     # hits_out["right"] = rights.append(upper_x)
 

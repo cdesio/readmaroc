@@ -313,6 +313,8 @@ if __name__ == "__main__":
 
     print(f"Saving hits to output npz file {outfile_npz}")
 
-    np.savez_compressed(outfile_npz, hits=ts_board_hit, allow_pickle=True)
+    np.savez_compressed(
+        outfile_npz, hits=ts_board_hit, ts=ts_to_plot, allow_pickle=True
+    )
     print("Bye.")
     # counts_per_board = {bid: len(tss) for bid, tss in ts_over_threshold.items()}
