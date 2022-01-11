@@ -308,7 +308,9 @@ if __name__ == "__main__":
         print("Nothing to plot. Quitting.")
     out_fname_npz = input_dat.split(".dat")[0].split(os.path.sep)[
         -1
-    ] + "_ts_hits_per_board_{}sigma_{}hits.npz".format(sigma, no_hits)
+    ] + "_ts_hits_per_board_{}sigma_{}hits_tot_evt_{}.npz".format(
+        sigma, no_hits, marocdata.max_evt
+    )
     outfile_npz = os.path.join(out_dir, out_fname_npz)
 
     print(f"Saving hits to output npz file {outfile_npz}")
