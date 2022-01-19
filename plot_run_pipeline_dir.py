@@ -8,10 +8,10 @@ if __name__ == "__main__":
 
     for fil in os.listdir(input_dir):
         if fil.startswith("Run") and fil.endswith(".dat"):
-            print(
-                f"python3 ./plot_run_pipeline.py {os.path.join(input_dir, fil)} 4 3 {output_dir} True"
-            )
+            # print(
+            #     f"python3 ./plot_run_pipeline.py {os.path.join(input_dir, fil)} 4 3 {output_dir} True"
+            # )
             os.system(
-                f"python3 ./plot_run_pipeline.py {os.path.join(input_dir, fil)} 4 3 '{output_dir}' True"
+                f"python ./plot_run_pipeline.py {os.path.join(input_dir, fil)} 4 3 '{output_dir}' True"
             )
     print("done.")
