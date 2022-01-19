@@ -244,6 +244,7 @@ if __name__ == "__main__":
     #    b: offset + (mu + 5 * std) for b, (mu, std) in marocdata.noise_tot.items()
     # }
     sigma = int(sys.argv[2])
+    print(f"sigma: {sigma}")
     # pedestals_tot = marocdata.pedestals_tot
     # noise_tot = marocdata.noise_tot(sigma)
     pipeline = Pipeline(
