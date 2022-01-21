@@ -267,6 +267,7 @@ if __name__ == "__main__":
     ts_over_threshold, hits_per_board = over_threshold_per_board(
         marocdata, corrected_signals
     )
+    # print(hits_per_board)
     # print(ts_over_threshold)
     all_ts = reduce(add, ts_over_threshold.values())
     no_hits = int(sys.argv[3])
@@ -279,12 +280,12 @@ if __name__ == "__main__":
     ts_board_hit = {}
     for board_id in marocdata.active_boards:
         ts_hit = {
-            ts: (evt, hits_per_board[board_id][evt].hit)
+            ts: (evt, hits_per_board[board_id][evt])
             for ts, evt in marocdata.get_board(board_id).clean_timestamps.items()
             if len(hits_per_board[board_id][evt].hit)
         }
         ts_board_hit[board_id] = ts_hit
-
+    # print(ts_board_hit)
     out_dir = os.path.abspath(sys.argv[4])
     print("out_dir:", format(out_dir))
     out_fname_pdf = input_dat.split(".dat")[0].split(os.path.sep)[

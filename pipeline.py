@@ -304,6 +304,13 @@ class HitPositions:
     left: List[int]
     right: List[int]
 
+    @property
+    def cluster_size(self):
+        if len(self.hit) == 0:
+            return None
+        elif len(self.hit) > 0:
+            return np.asarray(self.right) - np.asarray(self.left)
+
 
 from collections import defaultdict
 
