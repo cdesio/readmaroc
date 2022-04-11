@@ -35,8 +35,9 @@ if __name__ == "__main__":
     ]
     out_dict_sn = defaultdict(list)
 
-    for fname in files_list:
-        marocdata = MarocData(infolder)
+    for fname in files_list[:2]:
+        print("Reading from {}".format(fname))
+        marocdata = MarocData(fname)
 
         all_boards = np.arange(1, 31)
         non_active = [b for b in all_boards if b not in marocdata.active_boards]
@@ -48,15 +49,20 @@ if __name__ == "__main__":
 
         sn_dict = sn_per_board(marocdata, pipeline, sigma)
         # print(sn_dict)
-    for board_id, sn in sn_dict.items():
-        out_dict_sn[board_id.extend(sn)]
+        for board_id, sn in sn_dict.items():
+            print(board_id, sn.shape)
+            if len(out_dict_sn[board_id]) > 0:
+                out_dict_sn[board_id] = np.hstack((out_dict_sn[board_id], sn))
+            else:
+                out_dict_sn[board_id] = sn
+            print(board_id, len(out_dict_sn[board_id]))
 
-    outfile_npz = os.path.join(outdir, infolder, "sn.npz")
+    outfile_npz = os.path.join(outdir, "test.sn.npz")
 
     if not os.path.exists(outfile_npz):
         open(outfile_npz, "w").close()
 
-    print("Done. Saving to: {}".format(outdir + outfile_npz))
+    print("Done. Saving to: {}".format(outfile_npz))
 
     d = {str(k): value for k, value in sn_dict.items()}
-    np.savez_compressed(outfile_npz, out_dict_sn)
+    np.savez_compressed(outfile_npz, sn=out_dict_sn)
