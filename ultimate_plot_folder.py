@@ -56,8 +56,8 @@ if __name__ == "__main__":
             else:
                 out_dict_sn[board_id] = sn
             print(board_id, len(out_dict_sn[board_id]))
-
-    outfile_npz = os.path.join(outdir, "test.sn.npz")
+    out_prefix = os.path.abspath(infolder).split("/")[-1]
+    outfile_npz = os.path.join(outdir, out_prefix, "_sn.npz")
 
     if not os.path.exists(outfile_npz):
         open(outfile_npz, "w").close()
